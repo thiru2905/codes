@@ -2,6 +2,26 @@
 import subprocess
 import sys
 import os
+# --- All other imports now run *after* installation ---
+import io
+import time
+import boto3
+import joblib
+import pickle
+import pandas as pd
+from datetime import datetime
+from tqdm import tqdm
+import plotly.graph_objects as go
+from sklearn.preprocessing import LabelEncoder  # needed if encoders are sklearn LabelEncoder
+
+try:
+    import xgboost  # noqa: F401
+except Exception:
+    pass
+try:
+    import sklearn  # noqa: F401
+except Exception:
+    pass
 
 def install_packages():
     """
@@ -35,26 +55,7 @@ install_packages()
 # --- END: New Package Installation Block ---
 
 
-# --- All other imports now run *after* installation ---
-import io
-import time
-import boto3
-import joblib
-import pickle
-import pandas as pd
-from datetime import datetime
-from tqdm import tqdm
-import plotly.graph_objects as go
-from sklearn.preprocessing import LabelEncoder  # needed if encoders are sklearn LabelEncoder
 
-try:
-    import xgboost  # noqa: F401
-except Exception:
-    pass
-try:
-    import sklearn  # noqa: F401
-except Exception:
-    pass
 # -------------------------------------------------------------------------------
 
 # =========================
@@ -477,7 +478,7 @@ class Pipeline:
         WHERE
             u.connector_id = '1'
             AND date_parse(substr(u.r_updated_at, 1, 19), '%Y-%m-%d %H:%i:%s') >= date_add('day', -112, current_date)
-        LIMIT 500;
+        LIMIT 50000;
         """
 
         print("1. Running Athena query...")
@@ -498,6 +499,7 @@ class Pipeline:
         date_report = ReportGenerator.generate_date_summary(df_cleaned.copy(), predictions)
         
         graph_html = f"graph_{today_str}.html"
+        time.sleep(2)
         ReportGenerator.create_plot(date_report, graph_html)
         ReportGenerator.upload_to_s3(
             graph_html,
@@ -528,7 +530,7 @@ class Pipeline:
         print("\n5. Updating Glue table 'rpl_session_summary'...")
         glue = boto3.client('glue', region_name=S3_REGION)
         database_name = "ml_metrics"
-        table_name = "rpl_session_summary" 
+        table_name = "rpl_session_summary_final" 
         
         # --- Point Glue table to the new dedicated location ---
         s3_path = session_s3_location 
